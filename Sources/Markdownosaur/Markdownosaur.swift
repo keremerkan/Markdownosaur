@@ -23,7 +23,16 @@ public struct Markdownosaur: MarkupVisitor {
   let paragraphLines: UInt = 2
   let codeLines: UInt = 1
   
-  public init() {}
+  let isRTL: Bool
+
+  public init() {
+    if #available(iOS 16, *) {
+      self.isRTL = Locale.current.language.characterDirection == .rightToLeft
+    } else {
+      // Fallback on earlier versions
+      self.isRTL = Locale.characterDirection(forLanguage: Locale.current.languageCode ?? "en") == .rightToLeft
+    }
+  }
   
   public mutating func attributedString(from document: Document) -> NSAttributedString {
     return visit(document)
@@ -140,25 +149,29 @@ public struct Markdownosaur: MarkupVisitor {
   mutating public func visitUnorderedList(_ unorderedList: UnorderedList) -> NSAttributedString {
     let result = NSMutableAttributedString()
     
+    let bulletAlignment: NSTextAlignment = isRTL ? .left : .right
+    let textAlignment: NSTextAlignment = isRTL ? .right : .left
+
     for listItem in unorderedList.listItems {
       var listItemAttributes: [NSAttributedString.Key: Any] = [:]
-      
+
       let listItemParagraphStyle = NSMutableParagraphStyle()
-      
-      let baseLeftMargin = listLeftMargin
-      let leftMarginOffset = baseLeftMargin + (20.0 * CGFloat(unorderedList.listDepth))
+      listItemParagraphStyle.baseWritingDirection = isRTL ? .rightToLeft : .leftToRight
+
+      let baseLeadingMargin = listLeftMargin
+      let leadingMarginOffset = baseLeadingMargin + (20.0 * CGFloat(unorderedList.listDepth))
       let spacingFromIndex: CGFloat = 5.0
       let bulletWidth = ceil(NSAttributedString(string: "•", attributes: [.font: font]).size().width)
-      let firstTabLocation = leftMarginOffset + bulletWidth
+      let firstTabLocation = leadingMarginOffset + bulletWidth
       let secondTabLocation = firstTabLocation + spacingFromIndex
-      
+
       listItemParagraphStyle.tabStops = [
-        NSTextTab(textAlignment: .right, location: firstTabLocation),
-        NSTextTab(textAlignment: .left, location: secondTabLocation)
+        NSTextTab(textAlignment: bulletAlignment, location: firstTabLocation),
+        NSTextTab(textAlignment: textAlignment, location: secondTabLocation)
       ]
-      
+
       listItemParagraphStyle.headIndent = secondTabLocation
-      
+
       listItemAttributes[.paragraphStyle] = listItemParagraphStyle
       listItemAttributes[.font] = font
       listItemAttributes[.foregroundColor] = textColor
@@ -194,28 +207,31 @@ public struct Markdownosaur: MarkupVisitor {
   mutating public func visitOrderedList(_ orderedList: OrderedList) -> NSAttributedString {
     let result = NSMutableAttributedString()
     
+    let numberAlignment: NSTextAlignment = isRTL ? .left : .right
+    let textAlignment: NSTextAlignment = isRTL ? .right : .left
+
     for (index, listItem) in orderedList.listItems.enumerated() {
       var listItemAttributes: [NSAttributedString.Key: Any] = [:]
-      
+
       let listItemParagraphStyle = NSMutableParagraphStyle()
-      
-      // Implement a base amount to be spaced from the left side at all times to better visually differentiate it as a list
-      let baseLeftMargin = listLeftMargin
-      let leftMarginOffset = baseLeftMargin + (20.0 * CGFloat(orderedList.listDepth))
-      
+      listItemParagraphStyle.baseWritingDirection = isRTL ? .rightToLeft : .leftToRight
+
+      let baseLeadingMargin = listLeftMargin
+      let leadingMarginOffset = baseLeadingMargin + (20.0 * CGFloat(orderedList.listDepth))
+
       // Grab the highest number to be displayed and measure its width (yes normally some digits are wider than others but since we're using the numeral mono font all will be the same width in this case)
       let highestNumberInList = orderedList.childCount
       let numeralColumnWidth = ceil(NSAttributedString(string: "\(highestNumberInList).", attributes: [.font: monospacedDigitFont]).size().width)
-      
+
       let spacingFromIndex: CGFloat = 5.0
-      let firstTabLocation = leftMarginOffset + numeralColumnWidth
+      let firstTabLocation = leadingMarginOffset + numeralColumnWidth
       let secondTabLocation = firstTabLocation + spacingFromIndex
-      
+
       listItemParagraphStyle.tabStops = [
-        NSTextTab(textAlignment: .right, location: firstTabLocation),
-        NSTextTab(textAlignment: .left, location: secondTabLocation)
+        NSTextTab(textAlignment: numberAlignment, location: firstTabLocation),
+        NSTextTab(textAlignment: textAlignment, location: secondTabLocation)
       ]
-      
+
       listItemParagraphStyle.headIndent = secondTabLocation
       
       listItemAttributes[.paragraphStyle] = listItemParagraphStyle
@@ -249,13 +265,15 @@ public struct Markdownosaur: MarkupVisitor {
       var quoteAttributes: [NSAttributedString.Key: Any] = [:]
       
       let quoteParagraphStyle = NSMutableParagraphStyle()
-      
-      let baseLeftMargin: CGFloat = 15.0
-      let leftMarginOffset = baseLeftMargin + (20.0 * CGFloat(blockQuote.quoteDepth))
-      
-      quoteParagraphStyle.tabStops = [NSTextTab(textAlignment: .left, location: leftMarginOffset)]
-      
-      quoteParagraphStyle.headIndent = leftMarginOffset
+      quoteParagraphStyle.baseWritingDirection = isRTL ? .rightToLeft : .leftToRight
+
+      let baseLeadingMargin: CGFloat = 15.0
+      let leadingMarginOffset = baseLeadingMargin + (20.0 * CGFloat(blockQuote.quoteDepth))
+
+      let quoteTextAlignment: NSTextAlignment = isRTL ? .right : .left
+      quoteParagraphStyle.tabStops = [NSTextTab(textAlignment: quoteTextAlignment, location: leadingMarginOffset)]
+
+      quoteParagraphStyle.headIndent = leadingMarginOffset
       
       quoteAttributes[.paragraphStyle] = quoteParagraphStyle
       quoteAttributes[.font] = font
