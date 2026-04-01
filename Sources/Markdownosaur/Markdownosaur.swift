@@ -220,7 +220,9 @@ public struct Markdownosaur: MarkupVisitor {
       let leadingMarginOffset = baseLeadingMargin + (20.0 * CGFloat(orderedList.listDepth))
 
       // Grab the highest number to be displayed and measure its width (yes normally some digits are wider than others but since we're using the numeral mono font all will be the same width in this case)
-      let highestNumberInList = orderedList.childCount
+      // Respect the list's original starting index as provided by the Markdown parser.
+      let startIndex = Int(orderedList.startIndex)
+      let highestNumberInList = startIndex + orderedList.childCount - 1
       let numeralColumnWidth = ceil(NSAttributedString(string: "\(highestNumberInList).", attributes: [.font: monospacedDigitFont]).size().width)
 
       let spacingFromIndex: CGFloat = 5.0
@@ -245,7 +247,9 @@ public struct Markdownosaur: MarkupVisitor {
       var numberAttributes = listItemAttributes
       numberAttributes[.font] = monospacedDigitFont
       
-      let numberAttributedString = NSAttributedString(string: "\t\(index + 1).\t", attributes: numberAttributes)
+      // Use the original starting index from the parser rather than re-indexing from 1.
+      let displayNumber = startIndex + index
+      let numberAttributedString = NSAttributedString(string: "\t\(displayNumber).\t", attributes: numberAttributes)
       listItemAttributedString.insert(numberAttributedString, at: 0)
       
       result.append(listItemAttributedString)
